@@ -101,6 +101,19 @@ export const ProjectProvider = ({ children }) => {
       fetchFiles(currentProject.projectId);
     });
 
+    socket.on('agentCompleted', ({ agent, agentName }) => {
+      console.log(`Agent ${agentName} completed`);
+      // Refresh logs to show completion
+      fetchLogs(currentProject.projectId);
+    });
+
+    socket.on('workflowCompleted', ({ message, completedAgents }) => {
+      console.log('Workflow completed:', message);
+      setAgentStatus('Project created successfully');
+      // Refresh logs to show completion message
+      fetchLogs(currentProject.projectId);
+    });
+
     // Clean up event listeners when the component unmounts or when the project changes
     return () => {
       socket.emit('leaveProject', currentProject.projectId);
@@ -109,6 +122,8 @@ export const ProjectProvider = ({ children }) => {
       socket.off('newLog');
       socket.off('versionCreated');
       socket.off('versionRestored');
+      socket.off('agentCompleted');
+      socket.off('workflowCompleted');
     };
   }, [socket, currentProject, currentFile]);
 
@@ -170,23 +185,26 @@ export const ProjectProvider = ({ children }) => {
     setError(null);
 
     try {
+      console.log('🔧 Loading project:', projectId);
       const response = await fetch(`${API_URL}/projects/${projectId}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to load project');
       }
-      
+
       const project = await response.json();
+      console.log('🔧 Project loaded:', project);
       setCurrentProject(project);
-      
+
       // Load project files and logs
       await fetchFiles(projectId);
       await fetchLogs(projectId);
       await fetchVersions(projectId);
-      
+
       setCurrentAgent(project.currentAgent);
       setAgentStatus(project.status);
-      
+
+      console.log('🔧 Project context set, projectId:', project.projectId);
       return project;
     } catch (err) {
       setError(err.message);
@@ -361,18 +379,32 @@ export const ProjectProvider = ({ children }) => {
   };
 
   // Run an agent
-  const runAgent = async (projectId, agentName) => {
+  const runAgent = async (agentName) => {
+    console.log('🔧 runAgent called with:', agentName);
+    console.log('🔧 currentProject:', currentProject);
+    console.log('🔧 currentProject?.projectId:', currentProject?.projectId);
+
+    if (!currentProject?.projectId) {
+      const errorMsg = `No project selected. currentProject: ${currentProject ? 'exists but no projectId' : 'null'}`;
+      console.error('🔧 runAgent error:', errorMsg);
+      setError(errorMsg);
+      return false;
+    }
+
     setLoading(true);
-    
+
     try {
-      const response = await fetch(`${API_URL}/projects/${projectId}/agents/${agentName}`, {
+      console.log('🔧 Starting agent:', agentName, 'for project:', currentProject.projectId);
+      const response = await fetch(`${API_URL}/projects/${currentProject.projectId}/agents/${agentName}`, {
         method: 'POST',
       });
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to run agent: ${agentName}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to run agent: ${agentName}`);
       }
-      
+
+      console.log('🔧 Agent started successfully:', agentName);
       return true;
     } catch (err) {
       setError(err.message);
@@ -381,6 +413,36 @@ export const ProjectProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Automatically start workflow for a project
+  const startWorkflow = async (projectId) => {
+    console.log('🔧 startWorkflow called for project:', projectId);
+
+    // Use the projectId directly instead of relying on currentProject state
+    const startEmma = async () => {
+      try {
+        console.log('🔧 Starting Emma for project:', projectId);
+        const response = await fetch(`${API_URL}/projects/${projectId}/agents/emma`, {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to start Emma');
+        }
+
+        console.log('🔧 Emma started successfully for project:', projectId);
+        return true;
+      } catch (err) {
+        console.error('Error starting Emma:', err);
+        setError(err.message);
+        return false;
+      }
+    };
+
+    // Small delay to ensure project is fully loaded, then start Emma
+    setTimeout(startEmma, 1000);
   };
 
   return (
@@ -409,6 +471,7 @@ export const ProjectProvider = ({ children }) => {
         createVersion,
         restoreVersion,
         runAgent,
+        startWorkflow,
       }}
     >
       {children}

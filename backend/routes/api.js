@@ -15,6 +15,7 @@ router.get('/projects/:projectId', projectController.getProject);
 
 // Agent routes
 router.post('/projects/:projectId/agents/:agentName', agentController.runAgentHandler);
+router.get('/projects/:projectId/workflow', agentController.getWorkflowStatus);
 
 // File routes
 router.get('/projects/:projectId/files', fileController.getFiles);

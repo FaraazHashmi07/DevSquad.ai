@@ -30,6 +30,7 @@ function AppContent() {
     saveFile,
     createVersion,
     runAgent,
+    startWorkflow,
   } = useProject();
 
   const [userPrompt, setUserPrompt] = useState('');
@@ -202,16 +203,6 @@ function AppContent() {
     }
   };
 
-  // Start multi-agent workflow
-  const startAgentWorkflow = async (projectId) => {
-    try {
-      // Start with Emma (Business Analyst) - this will trigger the full workflow
-      await runAgent(projectId, 'emma');
-    } catch (error) {
-      console.error('Error starting agent workflow:', error);
-    }
-  };
-
   // Create a new project
   const handleCreateProject = async () => {
     if (!userPrompt.trim()) {
@@ -219,11 +210,16 @@ function AppContent() {
       return;
     }
 
+    console.log('🔧 Creating project with prompt:', userPrompt);
     const projectId = await createProject(userPrompt);
     if (projectId) {
-      await loadProject(projectId);
-      // Start the multi-agent workflow
-      await startAgentWorkflow(projectId);
+      console.log('🔧 Project created, loading:', projectId);
+      const project = await loadProject(projectId);
+      if (project) {
+        console.log('🔧 Project loaded, starting workflow');
+        // Start the automatic workflow
+        await startWorkflow(projectId);
+      }
       setUserPrompt('');
     }
   };
@@ -232,19 +228,33 @@ function AppContent() {
   const handlePredefinedPromptClick = async (prompt) => {
     setUserPrompt(prompt);
 
-    // Auto-start the project creation with the selected prompt
+    console.log('🔧 Creating project with predefined prompt:', prompt);
     const projectId = await createProject(prompt);
     if (projectId) {
-      await loadProject(projectId);
-      // Start the multi-agent workflow
-      await startAgentWorkflow(projectId);
+      console.log('🔧 Project created, loading:', projectId);
+      const project = await loadProject(projectId);
+      if (project) {
+        console.log('🔧 Project loaded, starting workflow');
+        // Start the automatic workflow
+        await startWorkflow(projectId);
+      }
       setUserPrompt('');
     }
   };
 
   // Load an existing project
   const handleLoadProject = async (projectId) => {
-    await loadProject(projectId);
+    console.log('🔧 Loading existing project:', projectId);
+    const project = await loadProject(projectId);
+    if (project) {
+      console.log('🔧 Existing project loaded successfully');
+      // For existing projects, check if workflow should continue
+      // Only start workflow if no agents have completed yet
+      if (!project.currentAgent || project.currentAgent === 'emma') {
+        console.log('🔧 Starting workflow for existing project');
+        await startWorkflow(projectId);
+      }
+    }
   };
 
   // Create a new version
