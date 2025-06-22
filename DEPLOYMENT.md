@@ -1,4 +1,4 @@
-# Deployment Guide
+# DevSquad.ai Deployment Guide
 
 ## 🚀 Quick Start
 
@@ -6,8 +6,8 @@
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/multi-agent-app-builder.git
-cd multi-agent-app-builder
+git clone https://github.com/FaraazHashmi07/DevSquad.ai.git
+cd DevSquad.ai
 ```
 
 2. **Backend Setup**
@@ -15,8 +15,8 @@ cd multi-agent-app-builder
 cd backend
 npm install
 cp .env.example .env
-# Add your Together AI API key to .env
-npm start
+# Edit .env with your Together AI API keys (see API Configuration below)
+npm run dev
 ```
 
 3. **Frontend Setup**
@@ -30,31 +30,86 @@ npm run dev
 - Frontend: http://localhost:5173
 - Backend: http://localhost:3000
 
+## 🔑 API Configuration (REQUIRED)
+
+DevSquad.ai uses a **dual API setup** with Together AI for optimal performance:
+
+### API Key Requirements
+- **GEMMA_API_KEY**: For Emma (Business Analyst) - Gemma models
+- **TOGETHER_API_KEY**: For other agents (Bob, David, Alex, DevOps) - Mistral models
+
+### Step-by-Step API Setup
+
+1. **Get Together AI API Keys**
+   - Visit: https://api.together.xyz/
+   - Create account (free tier available)
+   - Generate TWO API keys in your dashboard
+
+2. **Configure Environment Variables**
+   ```bash
+   cd backend
+   cp .env.example .env
+   # Edit .env file with your actual API keys
+   ```
+
+3. **Verify Configuration**
+   - Start backend: `npm run dev`
+   - Look for success messages:
+     - ✅ Gemma API client initialized for Emma (Business Analyst)
+     - ✅ Mistral API client initialized for other agents
+     - ✅ All API clients initialized successfully
+
 ## 🔧 Environment Configuration
 
 ### Required Environment Variables
 
 Create `backend/.env` with:
 ```env
+# DevSquad.ai API Configuration - Dual API Setup
+GEMMA_API_KEY=your_actual_gemma_api_key_here
+TOGETHER_API_KEY=your_actual_together_ai_api_key_here
+
 # Server Configuration
 PORT=3000
+NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 
-# AI Service Configuration
-OPENAI_API_KEY=your_together_ai_api_key_here
-
 # Optional Configuration
-NODE_ENV=development
 MAX_FILE_SIZE=5242880
 MAX_VERSIONS=10
 MAX_PROJECTS=100
 ```
 
-### API Key Setup
+### API Key Validation
 
-1. Get Together AI API key from https://api.together.xyz/
-2. Add to `backend/.env` file
-3. Restart backend server
+The backend automatically validates your API keys on startup:
+
+**Success Indicators:**
+- ✅ Gemma API client initialized for Emma (Business Analyst)
+- ✅ Mistral API client initialized for other agents
+- ✅ All API clients initialized successfully
+
+**Error Indicators:**
+- ❌ API key not properly configured
+- 🚨 API CONFIGURATION ISSUES DETECTED
+- Clear setup instructions will be displayed
+
+### Troubleshooting API Configuration
+
+1. **Placeholder Values Error**
+   - Replace `your_gemma_api_key_here` with actual keys
+   - Replace `your_together_ai_api_key_here` with actual keys
+
+2. **Invalid API Key Error**
+   - Verify keys are copied correctly (no extra spaces)
+   - Check API key permissions in Together AI dashboard
+   - Ensure sufficient credits in your Together AI account
+
+3. **Connection Test**
+   ```bash
+   # Test API connectivity
+   curl http://localhost:3000/api/test-apis
+   ```
 
 ## 📦 Production Deployment
 

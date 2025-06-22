@@ -1,6 +1,13 @@
-# Multi-Agent App Builder
+# DevSquad.ai - Multi-Agent App Builder
 
 This project implements a zero-cost, AI-powered multi-agent website/app builder that collaboratively translates user requirements into fully functional web applications through the coordination of specialized AI agents.
+
+## 🚀 Quick Start
+
+1. **Clone the repository**
+2. **Set up API keys** (see [API Configuration](#api-configuration) below)
+3. **Install dependencies and run** (see [Installation](#installation) below)
+4. **Start building** - Enter your project idea and watch the AI agents work!
 
 ## Overview
 
@@ -59,19 +66,70 @@ The system supports real-time collaboration through WebSockets and provides file
 
 - Node.js 16.x or later
 - npm or pnpm
-- Together AI API key (for backend AI agents)
+- Together AI API keys (see [API Configuration](#api-configuration) below)
+
+## API Configuration
+
+DevSquad.ai uses a **dual API setup** with Together AI for optimal performance:
+
+- **Emma (Business Analyst)** uses **Gemma models** for creating comprehensive business documents and presentations
+- **Other agents** (Bob, David, Alex, DevOps) use **Mistral models** for technical implementation
+
+### Step 1: Get Your API Keys
+
+1. Visit [Together AI](https://api.together.xyz/)
+2. Sign up for an account (free tier available)
+3. Navigate to your API dashboard
+4. Generate **two API keys**:
+   - One for Gemma models (Emma)
+   - One for Mistral models (other agents)
+
+### Step 2: Configure Environment Variables
+
+1. **Copy the example environment file:**
+   ```bash
+   cd backend
+   cp .env.example .env
+   ```
+
+2. **Edit the `.env` file** and replace the placeholder values:
+   ```bash
+   # DevSquad.ai API Configuration
+   GEMMA_API_KEY=your_actual_gemma_api_key_here
+   TOGETHER_API_KEY=your_actual_together_ai_api_key_here
+   ```
+
+3. **Save the file** and restart the backend server
+
+### Step 3: Verify Configuration
+
+The backend will automatically validate your API keys on startup:
+
+- ✅ **Success**: "All API clients initialized successfully"
+- ❌ **Error**: Clear instructions will be provided to fix configuration issues
+
+### API Key Security
+
+- ⚠️ **Never commit your actual API keys to version control**
+- 🔒 **Keep your `.env` file secure and private**
+- 🔄 **Rotate your API keys regularly for security**
+- 📝 **The `.env` file is already in `.gitignore`**
 
 ### Frontend Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/multi-agent-app-builder.git
-cd multi-agent-app-builder
+git clone https://github.com/FaraazHashmi07/DevSquad.ai.git
+cd DevSquad.ai
 
 # Install frontend dependencies
+npm install
+# or
 pnpm install
 
 # Start the development server
+npm run dev
+# or
 pnpm run dev
 ```
 
@@ -82,14 +140,37 @@ pnpm run dev
 cd backend
 
 # Install backend dependencies
+npm install
+# or
 pnpm install
 
-# Copy the example environment file and add your Together AI API key
+# Configure API keys (see API Configuration section above)
 cp .env.example .env
+# Edit .env file with your actual API keys
 
 # Start the backend server
+npm run dev
+# or
 pnpm run dev
 ```
+
+### Troubleshooting
+
+**Common Issues:**
+
+1. **"API client not initialized" errors**
+   - Check that your API keys are correctly set in `backend/.env`
+   - Ensure you're using actual API keys, not placeholder values
+   - Restart the backend server after changing `.env`
+
+2. **"Failed to fetch workflow status" errors**
+   - Ensure the backend server is running on port 3000
+   - Check that both frontend (5173) and backend (3000) are running
+
+3. **Agents not generating content**
+   - Verify your Together AI API keys have sufficient credits
+   - Check the backend console for specific error messages
+   - Ensure you have access to both Gemma and Mistral models
 
 ## Usage
 

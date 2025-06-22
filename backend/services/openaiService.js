@@ -4,12 +4,29 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Initialize dual API configuration
+// Initialize dual API configuration with fallback defaults
 // Emma uses Gemma API for business documents and presentations
 const GEMMA_API_KEY = process.env.GEMMA_API_KEY || 'tgp_v1_eUnattoUs5__nOr0mlovti-ehtK138Oxc7yyxgC4-CQ';
 // Other agents use Mistral API
 const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || '6cc5deefffb1aaf11a1736414ddc0dc50d6b0bd3d4afe7081876ecbfa79b6ef6';
 const TOGETHER_BASE_URL = 'https://api.together.xyz/v1';
+
+// API Key validation function
+function validateApiKey(apiKey, keyName) {
+  if (!apiKey) {
+    throw new Error(`${keyName} is required but not provided. Please check your .env file.`);
+  }
+
+  if (apiKey === 'your_gemma_api_key_here' || apiKey === 'your_together_ai_api_key_here') {
+    throw new Error(`${keyName} is using placeholder value. Please replace with your actual API key from https://api.together.xyz/`);
+  }
+
+  if (apiKey.length < 10) {
+    throw new Error(`${keyName} appears to be invalid (too short). Please check your API key.`);
+  }
+
+  return true;
+}
 
 // Create axios instance for Gemma API (Emma's business documents)
 const gemmaClient = axios.create({
@@ -31,34 +48,125 @@ const togetherClient = axios.create({
   timeout: 60000, // 60 seconds timeout
 });
 
-// Check if clients are properly configured
+// Enhanced client initialization with validation
 let gemmaClientInitialized = false;
 let mistralClientInitialized = false;
+let initializationErrors = [];
 
+// Initialize Gemma API client for Emma
 try {
-  if (GEMMA_API_KEY && GEMMA_API_KEY !== 'your_gemma_api_key_here') {
-    gemmaClientInitialized = true;
-    console.log('✅ Gemma API client initialized for Emma (Business Analyst)');
-  } else {
-    console.error('❌ Gemma API key not properly configured for Emma');
-  }
+  validateApiKey(GEMMA_API_KEY, 'GEMMA_API_KEY');
+  gemmaClientInitialized = true;
+  console.log('✅ Gemma API client initialized for Emma (Business Analyst)');
 } catch (error) {
-  console.error('Error initializing Gemma API client:', error);
+  initializationErrors.push(`Gemma API: ${error.message}`);
+  console.error('❌ Gemma API client initialization failed:', error.message);
+  console.error('   Emma (Business Analyst) will not be able to generate content');
+  console.error('   Please set GEMMA_API_KEY in your .env file');
 }
 
+// Initialize Mistral API client for other agents
 try {
-  if (TOGETHER_API_KEY && TOGETHER_API_KEY !== 'your_together_api_key_here') {
-    mistralClientInitialized = true;
-    console.log('✅ Mistral API client initialized for other agents');
-  } else {
-    console.error('❌ Mistral API key not properly configured');
-  }
+  validateApiKey(TOGETHER_API_KEY, 'TOGETHER_API_KEY');
+  mistralClientInitialized = true;
+  console.log('✅ Mistral API client initialized for other agents');
 } catch (error) {
-  console.error('Error initializing Mistral API client:', error);
+  initializationErrors.push(`Mistral API: ${error.message}`);
+  console.error('❌ Mistral API client initialization failed:', error.message);
+  console.error('   Bob, David, Alex, and DevOps agents will not be able to generate content');
+  console.error('   Please set TOGETHER_API_KEY in your .env file');
+}
+
+// Startup validation summary
+if (initializationErrors.length > 0) {
+  console.error('\n🚨 API CONFIGURATION ISSUES DETECTED:');
+  initializationErrors.forEach((error, index) => {
+    console.error(`   ${index + 1}. ${error}`);
+  });
+  console.error('\n📖 Setup Instructions:');
+  console.error('   1. Copy backend/.env.example to backend/.env');
+  console.error('   2. Get API keys from https://api.together.xyz/');
+  console.error('   3. Replace placeholder values in .env file');
+  console.error('   4. Restart the server\n');
+} else {
+  console.log('✅ All API clients initialized successfully');
 }
 
 // Legacy compatibility
 const clientInitialized = mistralClientInitialized;
+
+/**
+ * Test API connectivity for both Gemma and Mistral APIs
+ * @returns {Promise<object>} - Test results for both APIs
+ */
+exports.testApiConnectivity = async () => {
+  const results = {
+    gemma: { initialized: gemmaClientInitialized, working: false, error: null },
+    mistral: { initialized: mistralClientInitialized, working: false, error: null },
+    overall: false
+  };
+
+  // Test Gemma API if initialized
+  if (gemmaClientInitialized) {
+    try {
+      const testResponse = await gemmaClient.post('/chat/completions', {
+        model: 'google/gemma-2-27b-it',
+        messages: [{ role: 'user', content: 'Test connection' }],
+        max_tokens: 10,
+        temperature: 0.1
+      });
+
+      if (testResponse.data && testResponse.data.choices) {
+        results.gemma.working = true;
+        console.log('✅ Gemma API connectivity test passed');
+      }
+    } catch (error) {
+      results.gemma.error = error.response?.data?.error?.message || error.message;
+      console.error('❌ Gemma API connectivity test failed:', results.gemma.error);
+    }
+  }
+
+  // Test Mistral API if initialized
+  if (mistralClientInitialized) {
+    try {
+      const testResponse = await togetherClient.post('/chat/completions', {
+        model: 'mistralai/Mistral-7B-Instruct-v0.3',
+        messages: [{ role: 'user', content: 'Test connection' }],
+        max_tokens: 10,
+        temperature: 0.1
+      });
+
+      if (testResponse.data && testResponse.data.choices) {
+        results.mistral.working = true;
+        console.log('✅ Mistral API connectivity test passed');
+      }
+    } catch (error) {
+      results.mistral.error = error.response?.data?.error?.message || error.message;
+      console.error('❌ Mistral API connectivity test failed:', results.mistral.error);
+    }
+  }
+
+  results.overall = results.gemma.working && results.mistral.working;
+  return results;
+};
+
+/**
+ * Get API initialization status
+ * @returns {object} - Status of both API clients
+ */
+exports.getApiStatus = () => {
+  return {
+    gemma: {
+      initialized: gemmaClientInitialized,
+      keyConfigured: GEMMA_API_KEY && GEMMA_API_KEY !== 'your_gemma_api_key_here'
+    },
+    mistral: {
+      initialized: mistralClientInitialized,
+      keyConfigured: TOGETHER_API_KEY && TOGETHER_API_KEY !== 'your_together_ai_api_key_here'
+    },
+    errors: initializationErrors
+  };
+};
 
 /**
  * Execute a request to Together AI API
