@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import socketIOClient from 'socket.io-client';
 
 // Create context
@@ -21,6 +21,29 @@ export const ProjectProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [currentAgent, setCurrentAgent] = useState(null);
   const [agentStatus, setAgentStatus] = useState('');
+
+  // Calculate if all agents have completed by checking logs
+  const allAgentsCompleted = useMemo(() => {
+    if (!currentProject || !logs || logs.length === 0) {
+      return false;
+    }
+
+    // Check for completion messages from all 5 agents
+    const agentCompletionPatterns = [
+      'Emma has completed their task',
+      'Bob has completed their task',
+      'David has completed their task',
+      'Alex has completed their task',
+      'DevOps Engineer has completed their task'
+    ];
+
+    const completedAgents = agentCompletionPatterns.filter(pattern =>
+      logs.some(log => log.message && log.message.includes(pattern))
+    );
+
+    // All 5 agents must have completed
+    return completedAgents.length === 5;
+  }, [currentProject, logs]);
 
   // Connect to socket.io when the component mounts
   useEffect(() => {
@@ -375,6 +398,7 @@ export const ProjectProvider = ({ children }) => {
         error,
         currentAgent,
         agentStatus,
+        allAgentsCompleted,
         fetchProjects,
         createProject,
         loadProject,

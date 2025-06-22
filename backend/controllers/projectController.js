@@ -35,7 +35,7 @@ exports.createProject = async (req, res, next) => {
     });
     
     // Start Emma (PM) agent asynchronously
-    // In a real implementation, we would trigger the PM agent here
+    // The frontend will call the agent endpoint to start the workflow
     setTimeout(async () => {
       try {
         await fileService.appendToLog(projectId, 'Emma (PM) has started working on the PRD...');

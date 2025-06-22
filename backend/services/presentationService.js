@@ -17,6 +17,52 @@ exports.convertDocumentToPresentation = (businessDocument, wordDocumentHTML, tit
 };
 
 /**
+ * Create editable presentation from Word document and save to project
+ * @param {string} wordDocumentHTML - The Word document HTML content
+ * @param {string} userPrompt - User's business idea
+ * @param {string} projectId - Project ID
+ * @returns {Promise<string>} - File path of created presentation
+ */
+exports.createEditablePresentation = async (wordDocumentHTML, userPrompt, projectId) => {
+  try {
+    // Extract business title from user prompt
+    const businessTitle = extractBusinessTitle(userPrompt);
+    const presentationTitle = `${businessTitle} - Business Presentation`;
+
+    // Convert Word document to presentation
+    const presentationHTML = exports.convertDocumentToPresentation(
+      wordDocumentHTML,
+      wordDocumentHTML,
+      presentationTitle
+    );
+
+    // Save presentation to project
+    const fileName = 'BusinessPresentation';
+    const filePath = await exports.savePresentationHTML(projectId, fileName, presentationHTML);
+
+    console.log(`✅ Emma created editable presentation: ${filePath}`);
+    return filePath;
+
+  } catch (error) {
+    console.error('Error creating editable presentation:', error);
+    throw new Error(`Failed to create presentation: ${error.message}`);
+  }
+};
+
+/**
+ * Extract business title from user prompt
+ * @param {string} userPrompt - User's business idea
+ * @returns {string} - Clean business title
+ */
+function extractBusinessTitle(userPrompt) {
+  // Simple extraction - take first part of prompt and clean it
+  let title = userPrompt.split('.')[0].split(',')[0];
+  title = title.replace(/^(create|build|make|develop)\s+/i, '');
+  title = title.charAt(0).toUpperCase() + title.slice(1);
+  return title.length > 50 ? title.substring(0, 50) + '...' : title;
+}
+
+/**
  * Parse business document into professional presentation slides with analytics
  * @param {string} content - Business document content
  * @param {string} wordDocumentHTML - Word document HTML for reference

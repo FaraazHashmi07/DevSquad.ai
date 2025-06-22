@@ -4,11 +4,24 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Initialize Together AI client configuration
-const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || '547badb7bc1232e7e93b8f9ba15119200cd3b660c8f3fbd0c050b86797910c64';
+// Initialize dual API configuration
+// Emma uses Gemma API for business documents and presentations
+const GEMMA_API_KEY = process.env.GEMMA_API_KEY || 'tgp_v1_eUnattoUs5__nOr0mlovti-ehtK138Oxc7yyxgC4-CQ';
+// Other agents use Mistral API
+const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || '6cc5deefffb1aaf11a1736414ddc0dc50d6b0bd3d4afe7081876ecbfa79b6ef6';
 const TOGETHER_BASE_URL = 'https://api.together.xyz/v1';
 
-// Create axios instance for Together AI API
+// Create axios instance for Gemma API (Emma's business documents)
+const gemmaClient = axios.create({
+  baseURL: TOGETHER_BASE_URL,
+  headers: {
+    'Authorization': `Bearer ${GEMMA_API_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  timeout: 60000, // 60 seconds timeout
+});
+
+// Create axios instance for Mistral API (other agents)
 const togetherClient = axios.create({
   baseURL: TOGETHER_BASE_URL,
   headers: {
@@ -18,17 +31,34 @@ const togetherClient = axios.create({
   timeout: 60000, // 60 seconds timeout
 });
 
-// Check if client is properly configured
-let clientInitialized = false;
+// Check if clients are properly configured
+let gemmaClientInitialized = false;
+let mistralClientInitialized = false;
+
 try {
-  if (TOGETHER_API_KEY && TOGETHER_API_KEY !== 'your_together_api_key_here') {
-    clientInitialized = true;
+  if (GEMMA_API_KEY && GEMMA_API_KEY !== 'your_gemma_api_key_here') {
+    gemmaClientInitialized = true;
+    console.log('✅ Gemma API client initialized for Emma (Business Analyst)');
   } else {
-    console.error('Together AI API key not properly configured');
+    console.error('❌ Gemma API key not properly configured for Emma');
   }
 } catch (error) {
-  console.error('Error initializing Together AI client:', error);
+  console.error('Error initializing Gemma API client:', error);
 }
+
+try {
+  if (TOGETHER_API_KEY && TOGETHER_API_KEY !== 'your_together_api_key_here') {
+    mistralClientInitialized = true;
+    console.log('✅ Mistral API client initialized for other agents');
+  } else {
+    console.error('❌ Mistral API key not properly configured');
+  }
+} catch (error) {
+  console.error('Error initializing Mistral API client:', error);
+}
+
+// Legacy compatibility
+const clientInitialized = mistralClientInitialized;
 
 /**
  * Execute a request to Together AI API
@@ -38,33 +68,63 @@ try {
  * @returns {Promise<string>} - The response from Together AI
  */
 exports.executePrompt = async (systemPrompt, userPrompt, options = {}) => {
-  if (!clientInitialized) {
-    throw new Error('Together AI client not initialized. Check your API key.');
+  const messages = [
+    {
+      role: 'system',
+      content: systemPrompt,
+    },
+    {
+      role: 'user',
+      content: userPrompt,
+    },
+  ];
+
+  // Determine which API client and model to use
+  const isGemmaModel = options.model && (
+    options.model.includes('gemma') ||
+    options.model === 'gemma-business' ||
+    options.model === 'google/gemma-7b-it' ||
+    options.model === 'google/gemma-2b-it'
+  );
+
+  let apiClient, model, clientName;
+
+  if (isGemmaModel) {
+    // Use Gemma API for Emma's business documents
+    if (!gemmaClientInitialized) {
+      throw new Error('Gemma API client not initialized. Check your Gemma API key for Emma.');
+    }
+    apiClient = gemmaClient;
+    clientName = 'Gemma';
+
+    // Map to actual Gemma models (using working serverless models)
+    const gemmaModelMapping = {
+      'gemma-7b': 'google/gemma-2-27b-it',
+      'gemma-2b': 'google/gemma-2-27b-it',
+      'gemma-business': 'google/gemma-2-27b-it',
+      'google/gemma-7b-it': 'google/gemma-2-27b-it',
+      'google/gemma-2b-it': 'google/gemma-2-27b-it',
+    };
+    model = gemmaModelMapping[options.model] || options.model || 'google/gemma-2-27b-it';
+  } else {
+    // Use Mistral API for other agents
+    if (!mistralClientInitialized) {
+      throw new Error('Mistral API client not initialized. Check your Mistral API key.');
+    }
+    apiClient = togetherClient;
+    clientName = 'Mistral';
+
+    // Map all models to standardized Mistral model for non-Emma agents
+    const mistralModelMapping = {
+      'gpt-4': 'mistralai/Mistral-7B-Instruct-v0.3',
+      'gpt-3.5-turbo': 'mistralai/Mistral-7B-Instruct-v0.3',
+      'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo': 'mistralai/Mistral-7B-Instruct-v0.3',
+      'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo': 'mistralai/Mistral-7B-Instruct-v0.3',
+    };
+    model = mistralModelMapping[options.model] || 'mistralai/Mistral-7B-Instruct-v0.3';
   }
 
   try {
-    const messages = [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ];
-
-    // Map OpenAI models to Together AI serverless models
-    const modelMapping = {
-      'gpt-4': 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
-      'gpt-3.5-turbo': 'mistralai/Mistral-7B-Instruct-v0.3',
-      'gemma-7b': 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', // Using Llama as fallback
-      'gemma-2b': 'mistralai/Mistral-7B-Instruct-v0.3', // Using Mistral as fallback
-      'gemma-business': 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', // Specialized for business documents
-    };
-
-    const model = modelMapping[options.model] || options.model || 'mistralai/Mistral-7B-Instruct-v0.3';
-
     const requestData = {
       model: model,
       messages: messages,
@@ -72,13 +132,14 @@ exports.executePrompt = async (systemPrompt, userPrompt, options = {}) => {
       max_tokens: options.maxTokens || 2048,
     };
 
-    const response = await togetherClient.post('/chat/completions', requestData);
+    console.log(`🤖 Using ${clientName} API with model: ${model}`);
+    const response = await apiClient.post('/chat/completions', requestData);
 
     return response.data.choices[0].message.content;
   } catch (error) {
-    console.error('Error executing Together AI prompt:', error);
+    console.error(`Error executing ${clientName} API prompt:`, error);
     const errorMessage = error.response?.data?.error?.message || error.message;
-    throw new Error(`Together AI API error: ${errorMessage}`);
+    throw new Error(`${clientName} API error: ${errorMessage}`);
   }
 };
 
@@ -236,8 +297,8 @@ exports.getAgentSystemPrompt = (agentRole, projectContext) => {
  * @returns {Promise<string>} - The generated business document
  */
 exports.generateBusinessDocument = async (userPrompt, documentType = 'comprehensive-business-analysis') => {
-  if (!clientInitialized) {
-    throw new Error('Together AI client not initialized. Check your API key.');
+  if (!gemmaClientInitialized) {
+    throw new Error('Gemma API client not initialized. Check your Gemma API key for Emma.');
   }
 
   const systemPrompt = `You are Emma, a Senior Business Consultant with 20+ years of experience in strategic business analysis and market research.
@@ -279,18 +340,36 @@ exports.generateBusinessDocument = async (userPrompt, documentType = 'comprehens
   Begin with the document title and proceed with each section systematically.`;
 
   try {
-    const response = await exports.executePrompt(systemPrompt, userPrompt, {
-      model: 'gpt-4', // Use more reliable model for business documents
+    // Use Gemma API directly for Emma's business documents
+    const messages = [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
+        role: 'user',
+        content: userPrompt,
+      },
+    ];
+
+    const requestData = {
+      model: 'google/gemma-2-27b-it', // Use working Gemma model for business documents
+      messages: messages,
       temperature: 0.4, // Lower temperature for more consistent output
-      maxTokens: 6000 // Optimized token limit for quality content
-    });
+      max_tokens: 6000, // Optimized token limit for quality content
+    };
+
+    console.log('🔮 Emma using Gemma API for business document generation...');
+    const response = await gemmaClient.post('/chat/completions', requestData);
+    const generatedContent = response.data.choices[0].message.content;
 
     // Post-process the response to ensure quality
-    const cleanedResponse = cleanBusinessDocument(response);
+    const cleanedResponse = cleanBusinessDocument(generatedContent);
+    console.log('✅ Emma successfully generated business document using Gemma API');
     return cleanedResponse;
   } catch (error) {
-    console.error('Error generating business document:', error);
-    throw new Error(`Failed to generate business document: ${error.message}`);
+    console.error('❌ Error generating business document with Gemma API:', error);
+    throw new Error(`Failed to generate business document with Gemma: ${error.message}`);
   }
 };
 
